@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Dual N-Back</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Poppins', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#4F46E5', // Indigo 600
+                        secondary: '#10B981', // Emerald 500
+                        dark: '#1E293B',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Poppins', sans-serif; }
+        .grid-cell {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .cell-active {
+            background-color: #4F46E5 !important;
+            transform: scale(1.05);
+            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4);
+            border-color: #4F46E5 !important;
+        }
+        .btn-active {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .btn-matched { background-color: #10B981 !important; color: white !important; }
+        .btn-error { background-color: #EF4444 !important; color: white !important; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left Sidebar: Settings -->
+        <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 h-fit">
+            <h2 class="text-xl font-bold mb-6 text-dark flex items-center gap-2">
+                <i class="fa-solid fa-sliders text-primary"></i> Game Settings
+            </h2>
+            
+            <div class="space-y-5">
+                <!-- Grid Size -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1">Grid Size</label>
+                    <select id="gridSize" class="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-lg focus:ring-primary focus:border-primary block p-2.5 transition">
+                        <option value="3">3 x 3</option>
+                        <option value="4">4 x 4</option>
+                        <option value="5">5 x 5</option>
+                    </select>
+                </div>
+
+                <!-- Game Mode -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1">Game Mode</label>
+                    <select id="gameMode" class="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-lg focus:ring-primary focus:border-primary block p-2.5 transition">
+                        <option value="dual">Dual N-Back (Position + Sound)</option>
+                        <option value="position">Position Only</option>
+                        <option value="sound">Sound Only</option>
+                    </select>
+                </div>
+
+                <!-- Sound Options -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1">Sound Options</label>
+                    <select id="soundType" class="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-lg focus:ring-primary focus:border-primary block p-2.5 transition">
+                        <option value="alphabets">Alphabets (A-Z)</option>
+                        <option value="numbers">Numbers (0-9)</option>
+                        <option value="mixed">Mixed (Alpha + Num)</option>
+                    </select>
+                </div>
+
+                <hr class="border-slate-100">
+
+                <!-- Voice Settings -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1">Voice</label>
+                    <select id="voiceSelect" class="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-lg focus:ring-primary focus:border-primary block p-2.5 mb-3 transition">
+                        <option>Loading voices...</option>
+                    </select>
+
+                    <label class="block text-sm font-medium text-slate-600 mb-1 flex justify-between">
+                        <span>Speed (Rate)</span> <span id="rateVal" class="text-primary font-semibold">1.0</span>
+                    </label>
+                    <input type="range" id="voiceRate" min="0.5" max="2" step="0.1" value="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer mb-3 accent-primary">
+
+                    <label class="block text-sm font-medium text-slate-600 mb-1 flex justify-between">
+                        <span>Pitch (Tone)</span> <span id="pitchVal" class="text-primary font-semibold">1.0</span>
+                    </label>
+                    <input type="range" id="voicePitch" min="0" max="2" step="0.1" value="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-primary">
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Game Area -->
+        <div class="lg:col-span-2 flex flex-col items-center">
+            
+            <!-- Header & N-Level Controls -->
+            <div class="w-full flex justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                <div class="flex items-center gap-4">
+                    <button id="btnDecreaseN" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition disabled:opacity-50">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    <div class="text-center">
+                        <span class="block text-sm text-slate-500 font-medium">N-Level</span>
+                        <span id="nLevelDisplay" class="text-3xl font-bold text-primary">2</span>
+                    </div>
+                    <button id="btnIncreaseN" class="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+                
+                <div class="text-right">
+                    <div class="text-sm text-slate-500 font-medium">Trials</div>
+                    <div class="text-xl font-bold text-dark"><span id="trialCount">0</span> / <span id="totalTrials">20</span></div>
+                </div>
+            </div>
+
+            <!-- Game Board -->
+            <div id="gameBoardWrapper" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 mb-8 w-full max-w-md aspect-square flex items-center justify-center">
+                <div id="gridContainer" class="w-full h-full grid gap-2">
+                    <!-- Grid cells injected by JS -->
+                </div>
+            </div>
+
+            <!-- Match Controls -->
+            <div class="w-full max-w-md grid grid-cols-2 gap-4 mb-6">
+                <button id="btnMatchPos" class="py-4 px-6 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-bold text-lg hover:border-primary hover:text-primary transition flex flex-col items-center gap-1 shadow-sm focus:outline-none">
+                    <i class="fa-solid fa-cube text-2xl mb-1"></i>
+                    Position Match
+                    <span class="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Shortcut: A</span>
+                </button>
+                <button id="btnMatchSound" class="py-4 px-6 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-bold text-lg hover:border-primary hover:text-primary transition flex flex-col items-center gap-1 shadow-sm focus:outline-none">
+                    <i class="fa-solid fa-volume-high text-2xl mb-1"></i>
+                    Sound Match
+                    <span class="text-xs font-normal text-slate-400 bg-slate-100 px-2 py-0.5 rounded">Shortcut: L</span>
+                </button>
+            </div>
+
+            <!-- Game Actions -->
+            <div class="flex gap-4">
+                <button id="btnStart" class="py-3 px-8 rounded-full bg-primary text-white font-semibold text-lg hover:bg-indigo-700 transition shadow-lg shadow-indigo-200 flex items-center gap-2">
+                    <i class="fa-solid fa-play"></i> Start Game
+                </button>
+                <button id="btnStop" class="py-3 px-8 rounded-full bg-slate-200 text-slate-700 font-semibold text-lg hover:bg-slate-300 transition hidden flex items-center gap-2">
+                    <i class="fa-solid fa-stop"></i> Stop
+                </button>
+            </div>
+
+            <!-- Results -->
+            <div id="resultsArea" class="w-full mt-6 bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hidden">
+                <h3 class="text-xl font-bold text-center mb-4">Results</h3>
+                <div class="grid grid-cols-2 gap-4 text-center">
+                    <div id="resPos" class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <div class="text-sm text-slate-500 mb-1">Position Score</div>
+                        <div id="scorePos" class="text-2xl font-bold text-primary">0%</div>
+                    </div>
+                    <div id="resSound" class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                        <div class="text-sm text-slate-500 mb-1">Sound Score</div>
+                        <div id="scoreSound" class="text-2xl font-bold text-primary">0%</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- Game State ---
+        let nLevel = 2;
+        let trials = 20;
+        let currentTrial = 0;
+        let isPlaying = false;
+        let gameInterval;
+        
+        let history = []; // Array of {pos: int, sound: string}
+        let userResponses = []; // Array of {posMatched: bool, soundMatched: bool}
+        
+        let stats = {
+            pos: { hits: 0, misses: 0, falseAlarms: 0, possible: 0 },
+            sound: { hits: 0, misses: 0, falseAlarms: 0, possible: 0 }
+        };
+
+        const turnDuration = 2500; // ms per turn
+        const displayDuration = 1000; // ms indicator stays on
+
+        const charSets = {
+            alphabets: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''),
+            numbers: '0123456789'.split(''),
+            mixed: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('')
+        };
+
+        // --- DOM Elements ---
+        const els = {
+            gridSize: document.getElementById('gridSize'),
+            gameMode: document.getElementById('gameMode'),
+            soundType: document.getElementById('soundType'),
+            voiceSelect: document.getElementById('voiceSelect'),
+            voiceRate: document.getElementById('voiceRate'),
+            voicePitch: document.getElementById('voicePitch'),
+            rateVal: document.getElementById('rateVal'),
+            pitchVal: document.getElementById('pitchVal'),
+            
+            nLevel: document.getElementById('nLevelDisplay'),
+            btnIncN: document.getElementById('btnIncreaseN'),
+            btnDecN: document.getElementById('btnDecreaseN'),
+            trialCount: document.getElementById('trialCount'),
+            totalTrials: document.getElementById('totalTrials'),
+            
+            gridContainer: document.getElementById('gridContainer'),
+            btnMatchPos: document.getElementById('btnMatchPos'),
+            btnMatchSound: document.getElementById('btnMatchSound'),
+            btnStart: document.getElementById('btnStart'),
+            btnStop: document.getElementById('btnStop'),
+            
+            resultsArea: document.getElementById('resultsArea'),
+            resPos: document.getElementById('resPos'),
+            resSound: document.getElementById('resSound'),
+            scorePos: document.getElementById('scorePos'),
+            scoreSound: document.getElementById('scoreSound')
+        };
+
+        // --- Speech Synthesis Setup ---
+        let synth = window.speechSynthesis;
+        let voices = [];
+
+        function populateVoiceList() {
+            voices = synth.getVoices();
+            els.voiceSelect.innerHTML = '';
+            voices.forEach((voice, i) => {
+                const option = document.createElement('option');
+                option.textContent = `${voice.name} (${voice.lang})`;
+                option.value = i;
+                els.voiceSelect.appendChild(option);
+            });
+        }
+
+        populateVoiceList();
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = populateVoiceList;
+        }
+
+        // --- Initialization ---
+        function initGrid() {
+            const size = parseInt(els.gridSize.value);
+            els.gridContainer.innerHTML = '';
+            els.gridContainer.style.gridTemplateColumns = `repeat(${size}, minmax(0, 1fr))`;
+            els.gridContainer.style.gridTemplateRows = `repeat(${size}, minmax(0, 1fr))`;
+            
+            const totalCells = size * size;
+            for (let i = 0; i < totalCells; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell bg-slate-100 rounded-xl border-2 border-slate-200';
+                cell.id = `cell-${i}`;
+                els.gridContainer.appendChild(cell);
+            }
+        }
+
+        function updateUIForMode() {
+            const mode = els.gameMode.value;
+            els.btnMatchPos.style.display = (mode === 'dual' || mode === 'position') ? 'flex' : 'none';
+            els.btnMatchSound.style.display = (mode === 'dual' || mode === 'sound') ? 'flex' : 'none';
+            
+            if (mode === 'sound') {
+                els.gridContainer.style.opacity = '0.3';
+            } else {
+                els.gridContainer.style.opacity = '1';
+            }
+        }
+
+        function updateNLevel(delta) {
+            if (isPlaying) return;
+            nLevel = Math.max(1, nLevel + delta);
+            els.nLevel.textContent = nLevel;
+            els.btnDecN.disabled = (nLevel === 1);
+            trials = 20 + nLevel; // Standard N-back trials logic
+            els.totalTrials.textContent = trials;
+        }
+
+        // --- Core Game Logic ---
+        function startGame() {
+            if (isPlaying) return;
+            
+            // Re-init state
+            isPlaying = true;
+            currentTrial = 0;
+            history = [];
+            userResponses = [];
+            stats = {
+                pos: { hits: 0, misses: 0, falseAlarms: 0, possible: 0 },
+                sound: { hits: 0, misses: 0, falseAlarms: 0, possible: 0 }
+            };
+            
+            els.trialCount.textContent = currentTrial;
+            els.resultsArea.classList.add('hidden');
+            
+            els.btnStart.classList.add('hidden');
+            els.btnStop.classList.remove('hidden');
+            
+            // Disable settings during play
+            els.gridSize.disabled = true;
+            els.gameMode.disabled = true;
+            
+            // Clear grid
+            document.querySelectorAll('.grid-cell').forEach(c => c.classList.remove('cell-active'));
+
+            nextTurn();
+            gameInterval = setInterval(nextTurn, turnDuration);
+        }
+
+        function stopGame() {
+            isPlaying = false;
+            clearInterval(gameInterval);
+            synth.cancel();
+            
+            els.btnStart.classList.remove('hidden');
+            els.btnStop.classList.add('hidden');
+            els.gridSize.disabled = false;
+            els.gameMode.disabled = false;
+            
+            document.querySelectorAll('.grid-cell').forEach(c => c.classList.remove('cell-active'));
+            resetButtons();
+            
+            if (currentTrial > nLevel) {
+                showResults();
+            } else {
+                els.trialCount.textContent = '0';
+            }
+        }
+
+        function nextTurn() {
+            if (currentTrial >= trials) {
+                stopGame();
+                return;
+            }
+
+            // Evaluate previous turn misses if user didn't respond
+            if (currentTrial >= nLevel) {
+                const checkIdx = currentTrial - 1;
+                const targetIdx = checkIdx - nLevel;
+                const mode = els.gameMode.value;
+                
+                if (targetIdx >= 0) {
+                    const prevTarget = history[targetIdx];
+                    const prevActual = history[checkIdx];
+                    const prevResp = userResponses[checkIdx] || { posMatched: false, soundMatched: false };
+
+                    if (mode === 'dual' || mode === 'position') {
+                        const posMatch = prevTarget.pos === prevActual.pos;
+                        if (posMatch) stats.pos.possible++;
+                        if (posMatch && !prevResp.posMatched) stats.pos.misses++;
+                    }
+
+                    if (mode === 'dual' || mode === 'sound') {
+                        const soundMatch = prevTarget.sound === prevActual.sound;
+                        if (soundMatch) stats.sound.possible++;
+                        if (soundMatch && !prevResp.soundMatched) stats.sound.misses++;
+                    }
+                }
+            }
+
+            // Clear visual states
+            document.querySelectorAll('.grid-cell').forEach(c => c.classList.remove('cell-active'));
+            resetButtons();
+
+            const size = parseInt(els.gridSize.value);
+            const mode = els.gameMode.value;
+            const sType = els.soundType.value;
+            const chars = charSets[sType];
+
+            // Introduce N-Back logic (30% chance to force a match for playability)
+            let newPos = Math.floor(Math.random() * (size * size));
+            let newSound = chars[Math.floor(Math.random() * chars.length)];
+
+            if (currentTrial >= nLevel && Math.random() < 0.3) {
+                if (mode === 'dual' || mode === 'position') newPos = history[currentTrial - nLevel].pos;
+            }
+            if (currentTrial >= nLevel && Math.random() < 0.3) {
+                if (mode === 'dual' || mode === 'sound') newSound = history[currentTrial - nLevel].sound;
+            }
+
+            history.push({ pos: newPos, sound: newSound });
+            userResponses.push({ posMatched: false, soundMatched: false });
+
+            currentTrial++;
+            els.trialCount.textContent = currentTrial;
+
+            // Trigger Visuals
+            if (mode === 'dual' || mode === 'position') {
+                const activeCell = document.getElementById(`cell-${newPos}`);
+                if (activeCell) {
+                    activeCell.classList.add('cell-active');
+                    setTimeout(() => {
+                        if (isPlaying) activeCell.classList.remove('cell-active');
+                    }, displayDuration);
+                }
+            }
+
+            // Trigger Audio
+            if (mode === 'dual' || mode === 'sound') {
+                const utterance = new SpeechSynthesisUtterance(newSound);
+                const voiceIdx = els.voiceSelect.value;
+                if (voices[voiceIdx]) utterance.voice = voices[voiceIdx];
+                utterance.rate = parseFloat(els.voiceRate.value);
+                utterance.pitch = parseFloat(els.voicePitch.value);
+                synth.speak(utterance);
+            }
+        }
+
+        function handleMatch(type) {
+            if (!isPlaying || currentTrial < nLevel) return;
+            
+            const checkIdx = currentTrial - 1;
+            const targetIdx = checkIdx - nLevel;
+            if (targetIdx < 0) return;
+
+            const currentObj = history[checkIdx];
+            const targetObj = history[targetIdx];
+            const btn = type === 'pos' ? els.btnMatchPos : els.btnMatchSound;
+            
+            if (userResponses[checkIdx][type + 'Matched']) return; // Already pressed this turn
+            
+            userResponses[checkIdx][type + 'Matched'] = true;
+
+            const isMatch = (type === 'pos') ? (currentObj.pos === targetObj.pos) : (currentObj.sound === targetObj.sound);
+
+            if (isMatch) {
+                stats[type].hits++;
+                flashButton(btn, 'btn-matched');
+            } else {
+                stats[type].falseAlarms++;
+                flashButton(btn, 'btn-error');
+            }
+        }
+
+        function flashButton(btn, classToAdd) {
+            btn.classList.add(classToAdd);
+            setTimeout(() => {
+                btn.classList.remove(classToAdd);
+            }, 300);
+        }
+
+        function resetButtons() {
+            els.btnMatchPos.classList.remove('btn-matched', 'btn-error');
+            els.btnMatchSound.classList.remove('btn-matched', 'btn-error');
+        }
+
+        function showResults() {
+            els.resultsArea.classList.remove('hidden');
+            const mode = els.gameMode.value;
+
+            els.resPos.style.display = (mode === 'dual' || mode === 'position') ? 'block' : 'none';
+            els.resSound.style.display = (mode === 'dual' || mode === 'sound') ? 'block' : 'none';
+
+            // Calculate Score (Simple Percentage: (Hits - FalseAlarms) / Possible )
+            const calcScore = (stat) => {
+                if (stat.possible === 0) return 0;
+                let s = ((stat.hits - stat.falseAlarms) / stat.possible) * 100;
+                return Math.max(0, Math.round(s)); // Floor at 0
+            };
+
+            els.scorePos.textContent = calcScore(stats.pos) + '%';
+            els.scoreSound.textContent = calcScore(stats.sound) + '%';
+        }
+
+        // --- Event Listeners ---
+        els.gridSize.addEventListener('change', initGrid);
+        els.gameMode.addEventListener('change', updateUIForMode);
+        
+        els.btnIncN.addEventListener('click', () => updateNLevel(1));
+        els.btnDecN.addEventListener('click', () => updateNLevel(-1));
+        
+        els.voiceRate.addEventListener('input', (e) => els.rateVal.textContent = e.target.value);
+        els.voicePitch.addEventListener('input', (e) => els.pitchVal.textContent = e.target.value);
+
+        els.btnStart.addEventListener('click', startGame);
+        els.btnStop.addEventListener('click', stopGame);
+
+        els.btnMatchPos.addEventListener('click', () => handleMatch('pos'));
+        els.btnMatchSound.addEventListener('click', () => handleMatch('sound'));
+
+        // Keyboard Shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (!isPlaying) return;
+            if (e.key.toLowerCase() === 'a' && els.btnMatchPos.style.display !== 'none') {
+                handleMatch('pos');
+                els.btnMatchPos.classList.add('btn-active');
+                setTimeout(() => els.btnMatchPos.classList.remove('btn-active'), 100);
+            }
+            if (e.key.toLowerCase() === 'l' && els.btnMatchSound.style.display !== 'none') {
+                handleMatch('sound');
+                els.btnMatchSound.classList.add('btn-active');
+                setTimeout(() => els.btnMatchSound.classList.remove('btn-active'), 100);
+            }
+        });
+
+        // Init on load
+        initGrid();
+        updateUIForMode();
+        els.totalTrials.textContent = trials;
+    </script>
+</body>
+</html>
