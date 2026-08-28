@@ -30,7 +30,7 @@
     <style>
         body { font-family: 'Poppins', sans-serif; }
         .grid-cell {
-            transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.05s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .cell-active {
             background-color: #4F46E5 !important;
@@ -89,16 +89,16 @@
                 
                 <!-- Stimuli Speed (Turn Duration) -->
                 <div>
-                    <label class="block text-sm font-medium text-slate-600 mb-1">Stimuli Speed</label>
-                    <select id="gameSpeed" class="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-lg focus:ring-primary focus:border-primary block p-2.5 transition">
-                        <option value="300">300 ms (Extreme)</option>
-                        <option value="500">500 ms (Very Fast)</option>
-                        <option value="1000">1000 ms (Fast)</option>
-                        <option value="1500">1500 ms</option>
-                        <option value="2000">2000 ms</option>
-                        <option value="2500" selected>2500 ms (Standard)</option>
-                        <option value="3000">3000 ms (Slow)</option>
-                    </select>
+                    <label class="flex items-center justify-between text-sm font-medium text-slate-600 mb-1">
+                        <span>Stimuli Speed</span>
+                        <span class="text-slate-700"><span id="gameSpeedValue" class="font-bold text-primary">2500</span> ms <span id="gameSpeedLabel" class="font-normal text-slate-400">(Standard)</span></span>
+                    </label>
+                    <input type="range" id="gameSpeed" min="100" max="3000" step="50" value="2500"
+                        class="w-full accent-primary cursor-pointer">
+                    <div class="flex justify-between text-xs text-slate-400 mt-1">
+                        <span>100 ms (fastest)</span>
+                        <span>3000 ms (slowest)</span>
+                    </div>
                 </div>
 
                 <hr class="border-slate-100">
@@ -209,7 +209,8 @@
             gameMode: document.getElementById('gameMode'),
             soundType: document.getElementById('soundType'),
             gameSpeed: document.getElementById('gameSpeed'),
-            
+            gameSpeedValue: document.getElementById('gameSpeedValue'),
+            gameSpeedLabel: document.getElementById('gameSpeedLabel'),
             
             nLevel: document.getElementById('nLevelDisplay'),
             btnIncN: document.getElementById('btnIncreaseN'),
@@ -315,6 +316,8 @@
         }
 
         function getSpeechRate(durationMs) {
+            if (durationMs <= 150) return 6.0;
+            if (durationMs <= 200) return 5.2;
             if (durationMs <= 300) return 4.5;
             if (durationMs <= 500) return 3.5;
             if (durationMs <= 750) return 2.8;
@@ -322,6 +325,22 @@
             if (durationMs <= 1500) return 1.7;
             if (durationMs <= 2000) return 1.35;
             return 1.0;
+        }
+
+        function getSpeedLabel(durationMs) {
+            if (durationMs <= 200) return 'Insane';
+            if (durationMs <= 400) return 'Extreme';
+            if (durationMs <= 700) return 'Very Fast';
+            if (durationMs <= 1200) return 'Fast';
+            if (durationMs <= 1800) return 'Moderate';
+            if (durationMs <= 2600) return 'Standard';
+            return 'Slow';
+        }
+
+        function updateSpeedDisplay() {
+            const val = parseInt(els.gameSpeed.value);
+            els.gameSpeedValue.textContent = val;
+            els.gameSpeedLabel.textContent = `(${getSpeedLabel(val)})`;
         }
 
         // --- Core Game Logic ---
@@ -525,6 +544,7 @@
         // --- Event Listeners ---
         els.gridSize.addEventListener('change', initGrid);
         els.gameMode.addEventListener('change', updateUIForMode);
+        els.gameSpeed.addEventListener('input', updateSpeedDisplay);
         
         els.btnIncN.addEventListener('click', () => updateNLevel(1));
         els.btnDecN.addEventListener('click', () => updateNLevel(-1));
@@ -553,6 +573,7 @@
         // Init on load
         initGrid();
         updateUIForMode();
+        updateSpeedDisplay();
         els.totalTrials.textContent = trials;
     </script>
 </body>
