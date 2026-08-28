@@ -101,6 +101,21 @@
                     </div>
                 </div>
 
+                <!-- Session Length -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 mb-1">Session Length</label>
+                    <select id="sessionMode" class="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-lg focus:ring-primary focus:border-primary block p-2.5 transition">
+                        <option value="fixed">Fixed Number of Trials</option>
+                        <option value="free">Free Mode (Until Stopped)</option>
+                    </select>
+                </div>
+
+                <!-- Number of Trials (Fixed mode only) -->
+                <div id="trialsInputWrapper">
+                    <label class="block text-sm font-medium text-slate-600 mb-1">Number of Trials</label>
+                    <input type="number" id="trialsInput" min="1" max="500" value="20" class="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-lg focus:ring-primary focus:border-primary block p-2.5 transition">
+                </div>
+
                 <hr class="border-slate-100">
             </div>
         </div>
@@ -211,6 +226,9 @@
             gameSpeed: document.getElementById('gameSpeed'),
             gameSpeedValue: document.getElementById('gameSpeedValue'),
             gameSpeedLabel: document.getElementById('gameSpeedLabel'),
+            sessionMode: document.getElementById('sessionMode'),
+            trialsInput: document.getElementById('trialsInput'),
+            trialsInputWrapper: document.getElementById('trialsInputWrapper'),
             
             nLevel: document.getElementById('nLevelDisplay'),
             btnIncN: document.getElementById('btnIncreaseN'),
@@ -311,8 +329,23 @@
             nLevel = Math.max(1, nLevel + delta);
             els.nLevel.textContent = nLevel;
             els.btnDecN.disabled = (nLevel === 1);
-            trials = 20 + nLevel; 
-            els.totalTrials.textContent = trials;
+        }
+
+        function updateTotalTrialsDisplay() {
+            els.totalTrials.textContent = (els.sessionMode.value === 'free') ? '∞' : trials;
+        }
+
+        function updateSessionModeUI() {
+            const isFree = els.sessionMode.value === 'free';
+            els.trialsInputWrapper.classList.toggle('hidden', isFree);
+            updateTotalTrialsDisplay();
+        }
+
+        function updateTrialsSetting() {
+            let val = parseInt(els.trialsInput.value, 10);
+            if (isNaN(val) || val < 1) val = 1;
+            trials = val;
+            updateTotalTrialsDisplay();
         }
 
         function getSpeechRate(durationMs) {
@@ -347,6 +380,9 @@
         function startGame() {
             if (isPlaying) return;
             
+            // Make sure trial count matches the input field
+            updateTrialsSetting();
+            
             // Set speed dynamic variables
             turnDuration = parseInt(els.gameSpeed.value);
             displayDuration = turnDuration * 0.75; // highlight lasts 75% of the turn duration
@@ -371,6 +407,8 @@
             els.gridSize.disabled = true;
             els.gameMode.disabled = true;
             els.gameSpeed.disabled = true;
+            els.sessionMode.disabled = true;
+            els.trialsInput.disabled = true;
             
             // Clear grid & speech queue
             document.querySelectorAll('.grid-cell').forEach(c => c.classList.remove('cell-active'));
@@ -390,6 +428,8 @@
             els.gridSize.disabled = false;
             els.gameMode.disabled = false;
             els.gameSpeed.disabled = false;
+            els.sessionMode.disabled = false;
+            els.trialsInput.disabled = false;
             
             document.querySelectorAll('.grid-cell').forEach(c => c.classList.remove('cell-active'));
             resetButtons();
@@ -402,7 +442,7 @@
         }
 
         function nextTurn() {
-            if (currentTrial >= trials) {
+            if (els.sessionMode.value === 'fixed' && currentTrial >= trials) {
                 stopGame();
                 return;
             }
@@ -545,6 +585,8 @@
         els.gridSize.addEventListener('change', initGrid);
         els.gameMode.addEventListener('change', updateUIForMode);
         els.gameSpeed.addEventListener('input', updateSpeedDisplay);
+        els.sessionMode.addEventListener('change', updateSessionModeUI);
+        els.trialsInput.addEventListener('input', updateTrialsSetting);
         
         els.btnIncN.addEventListener('click', () => updateNLevel(1));
         els.btnDecN.addEventListener('click', () => updateNLevel(-1));
@@ -574,7 +616,7 @@
         initGrid();
         updateUIForMode();
         updateSpeedDisplay();
-        els.totalTrials.textContent = trials;
+        updateSessionModeUI();
     </script>
 </body>
 </html>
